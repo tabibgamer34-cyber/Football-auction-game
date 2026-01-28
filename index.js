@@ -15,7 +15,7 @@ const players = [
   { name: "Vinícius Júnior", club: "Real Madrid" },
   { name: "Jude Bellingham", club: "Real Madrid" },
   { name: "Mohamed Salah", club: "Liverpool" },
-  // Add more players here if you want!
+  // add more
 ];
 
 let currentIndex = 0;
@@ -41,6 +41,13 @@ function endAuction() {
 }
 
 io.on("connection", (socket) => {
+  // Receive username from client
+  socket.on('set username', (username) => {
+    socket.username = username || "Anonymous"; // fallback
+    console.log(`${socket.username} connected`);
+  });
+
+  // Send current state to new user
   const timeLeft = Math.max(0, endTime - Date.now());
   socket.emit("newPlayer", {
     player: players[currentIndex],
@@ -52,11 +59,15 @@ io.on("connection", (socket) => {
   socket.on("bid", (amount) => {
     if (amount <= currentBid || Date.now() > endTime) return;
     currentBid = amount;
-    currentBidder = socket.id.slice(0, 6); // short temp name
+    currentBidder = socket.username || socket.id.slice(0, 6); // use username if set
     endTime = Date.now() + 5000;
     io.emit("newBid", { bid: currentBid, bidder: currentBidder, timeLeft: 5000 });
     clearTimeout(timer);
     timer = setTimeout(endAuction, 5000);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`${socket.username || 'Someone'} disconnected`);
   });
 });
 
