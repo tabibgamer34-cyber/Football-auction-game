@@ -5,132 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Football Player Auction – Friends Game</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #111;
-      color: white;
-      margin: 0;
-      padding: 20px;
-    }
-    h1 {
-      color: #0f0;
-      margin-bottom: 10px;
-    }
-    #player {
-      font-size: 2.2em;
-      margin: 20px 0;
-      min-height: 60px;
-    }
-    #bid-info {
-      font-size: 1.6em;
-      margin: 10px 0;
-    }
-    #bid {
-      color: #ff0;
-      font-weight: bold;
-    }
-    #timer {
-      font-size: 3.5em;
-      color: #ff4444;
-      font-weight: bold;
-      margin: 15px 0;
-    }
-    input {
-      font-size: 1.6em;
-      padding: 12px;
-      width: 140px;
-      margin: 10px;
-      border-radius: 6px;
-      border: none;
-    }
-    button {
-      font-size: 1.6em;
-      padding: 12px 30px;
-      background: #0066ff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0055cc;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; background: #111; color: white; margin: 0; padding: 20px; }
+    h1 { color: #0f0; }
+    #join-screen { max-width: 400px; margin: 100px auto; }
+    #join-screen input { font-size: 1.8em; padding: 12px; width: 80%; margin: 10px 0; border-radius: 6px; border: none; }
+    #join-screen button { font-size: 1.8em; padding: 12px 40px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    #auction-screen { display: none; }
+    #player { font-size: 2.4em; margin: 20px 0; min-height: 60px; }
+    #bid-info { font-size: 1.8em; margin: 15px 0; }
+    #bid { color: #ff0; font-weight: bold; }
+    #timer { font-size: 4em; color: #ff4444; font-weight: bold; margin: 10px 0; }
+    input#bidAmount { font-size: 1.8em; padding: 12px; width: 140px; margin: 10px; border-radius: 6px; border: none; }
+    button { font-size: 1.8em; padding: 12px 35px; background: #0066ff; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    button:hover { background: #0055cc; }
   </style>
 </head>
 <body>
-  <h1>Football Player Auction ⚽</h1>
 
-  <div id="player">Loading first player...</div>
-
-  <div id="bid-info">
-    Current bid: <span id="bid">0</span> by <span id="bidder">No one</span>
+  <!-- Join Screen -->
+  <div id="join-screen">
+    <h1>Welcome to Football Auction ⚽</h1>
+    <p>Enter your name to join:</p>
+    <input id="usernameInput" type="text" placeholder="Your name (e.g. Tabib)" maxlength="20">
+    <button onclick="joinAuction()">Join Auction</button>
   </div>
 
-  <div id="timer">15</div>
-  <div>seconds left</div>
+  <!-- Auction Screen (hidden at first) -->
+  <div id="auction-screen">
+    <h1>Football Player Auction ⚽</h1>
 
-  <input id="bidAmount" type="number" placeholder="Enter bid" min="1">
-  <button onclick="placeBid()">Place Bid!</button>
+    <div id="player">Connecting... please wait</div>
+
+    <div id="bid-info">
+      Current bid: <span id="bid">0</span> by <span id="bidder">No one</span>
+    </div>
+
+    <div id="timer">15</div>
+    <div>seconds left</div>
+
+    <input id="bidAmount" type="number" placeholder="Enter bid" min="1">
+    <button onclick="placeBid()">Place Bid!</button>
+  </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // Use your exact Render URL here (important for Render free tier)
-    const socket = io('https://football-auction-game.onrender.com', {
-      transports: ['websocket'],          // force websocket (better on Render)
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
-    });
+    let socket;
+    let myUsername = "";
 
-    // Debug connection
-    socket.on('connect', () => {
-      console.log('Connected to server!');
-    });
+    function joinAuction() {
+      myUsername = document.getElementById("usernameInput").value.trim();
+      if (!myUsername) {
+        alert("Please enter a name!");
+        return;
+      }
 
-    socket.on('connect_error', (err) => {
-      console.log('Connection error:', err.message);
-    });
+      // Hide join screen, show auction
+      document.getElementById("join-screen").style.display = "none";
+      document.getElementById("auction-screen").style.display = "block";
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from server');
-    });
+      // Connect and send username
+      const SOCKET_URL = 'https://football-auction-game.onrender.com';
+      socket = io(SOCKET_URL, {
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 1000
+      });
 
-    socket.on("newPlayer", (data) => {
-      console.log('New player received:', data);
-      document.getElementById("player").innerText = `\( {data.player.name} ( \){data.player.club})`;
-      document.getElementById("bid").innerText = data.bid;
-      document.getElementById("bidder").innerText = data.bidder;
-      document.getElementById("timer").innerText = Math.floor(data.timeLeft / 1000);
-    });
+      socket.on('connect', () => {
+        socket.emit('set username', myUsername);
+        document.getElementById("player").innerText = 'Connected! Waiting for auction...';
+      });
 
-    socket.on("newBid", (data) => {
-      console.log('New bid received:', data);
-      document.getElementById("bid").innerText = data.bid;
-      document.getElementById("bidder").innerText = data.bidder;
-      document.getElementById("timer").innerText = Math.floor(data.timeLeft / 1000);
-    });
+      socket.on('connect_error', (err) => {
+        document.getElementById("player").innerText = 'Connection issue... retrying';
+      });
 
-    socket.on("sold", (data) => {
-      alert(`SOLD! ${data.player.name} to ${data.winner} for ${data.bid}`);
-    });
+      socket.on("newPlayer", (data) => {
+        if (data && data.player) {
+          document.getElementById("player").innerText = `\( {data.player.name} ( \){data.player.club})`;
+        }
+        document.getElementById("bid").innerText = data.bid || 0;
+        document.getElementById("bidder").innerText = data.bidder || "No one";
+        document.getElementById("timer").innerText = Math.floor((data.timeLeft || 15000) / 1000);
+      });
+
+      socket.on("newBid", (data) => {
+        document.getElementById("bid").innerText = data.bid;
+        document.getElementById("bidder").innerText = data.bidder;
+        document.getElementById("timer").innerText = Math.floor(data.timeLeft / 1000);
+      });
+
+      socket.on("sold", (data) => {
+        let winner = data.winner === myUsername ? "You" : data.winner;
+        alert(`SOLD! ${data.player.name} to ${winner} for ${data.bid}`);
+      });
+    }
 
     function placeBid() {
+      if (!socket || !socket.connected) {
+        alert("Not connected yet!");
+        return;
+      }
       const amount = Number(document.getElementById("bidAmount").value);
       if (amount > 0) {
         socket.emit("bid", amount);
         document.getElementById("bidAmount").value = "";
       } else {
-        alert("Enter a positive number!");
+        alert("Enter a positive bid!");
       }
     }
 
-    // Simple local countdown (server controls real timing)
+    // Local timer
     setInterval(() => {
       let t = Number(document.getElementById("timer").innerText);
-      if (t > 0) {
-        document.getElementById("timer").innerText = t - 1;
-      }
+      if (t > 0) document.getElementById("timer").innerText = t - 1;
     }, 1000);
   </script>
 </body>
