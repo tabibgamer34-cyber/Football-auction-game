@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Football Player Auction – Friends Game</title>
+  <style>
+    body { font-family: Arial; text-align: center; background: #111; color: white; margin: 0; padding: 20px; }
+    h1 { color: #0f0; }
+    #player { font-size: 2.5em; margin: 20px; }
+    #bid { font-size: 2em; color: #ff0; }
+    #timer { font-size: 4em; color: #ff4444; font-weight: bold; }
+    input { font-size: 1.8em; padding: 10px; width: 150px; margin: 10px; }
+    button { font-size: 1.8em; padding: 15px 30px; background: #0066ff; color: white; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Football Player Auction ⚽</h1>
+  <div id="player">Loading first player...</div>
+  <div>Current bid: <span id="bid">0</span> by <span id="bidder">No one</span></div>
+  <div>Time left: <span id="timer">15</span> sec</div>
+
+  <input id="bidAmount" type="number" placeholder="Enter bid" min="1">
+  <button onclick="placeBid()">Place Bid!</button>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    socket.on("newPlayer", data => {
+      document.getElementById("player").innerText = `\( {data.player.name} ( \){data.player.club})`;
+      document.getElementById("bid").innerText = data.bid;
+      document.getElementById("bidder").innerText = data.bidder;
+      document.getElementById("timer").innerText = Math.floor(data.timeLeft / 1000);
+    });
+
+    socket.on("newBid", data => {
+      document.getElementById("bid").innerText = data.bid;
+      document.getElementById("bidder").innerText = data.bidder;
+      document.getElementById("timer").innerText = Math.floor(data.timeLeft / 1000);
+    });
+
+    socket.on("sold", data => {
+      alert(`SOLD! ${data.player.name} to ${data.winner} for ${data.bid}`);
+    });
+
+    function placeBid() {
+      const amt = Number(document.getElementById("bidAmount").value);
+      if (amt > 0) {
+        socket.emit("bid", amt);
+        document.getElementById("bidAmount").value = "";
+      }
+    }
+
+    // Local timer countdown (approximate, server controls real end)
+    setInterval(() => {
+      let t = Number(document.getElementById("timer").innerText);
+      if (t > 0) document.getElementById("timer").innerText = t - 1;
+    }, 1000);
+  </script>
+</body>
+</html>
